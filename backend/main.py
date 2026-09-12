@@ -11,9 +11,6 @@ from ml_model import classify_report
 
 app = FastAPI(title="OIL SIF/NLP API")
 
-# CORS: wide open for development so both the Live Server frontend and
-# file:// standalone pages can call this API. Tighten this to your
-# actual frontend origin(s) before deploying for real.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,11 +23,7 @@ app.add_middleware(
 def on_startup():
     init_db()
 
-
-# ---------------------------------------------------------------
-# Request/response models
-# ---------------------------------------------------------------
-
+#Request
 class ReportIn(BaseModel):
     worker_id: Optional[str] = None
     site: Optional[str] = None
@@ -42,8 +35,6 @@ class ReportIn(BaseModel):
     equipment: Optional[str] = None
     ppe_compliant: Optional[bool] = None
     submitted_at: Optional[str] = None
-    # These come from the frontend as null on submission — the backend
-    # ignores whatever it's sent and fills them in itself below.
     sif_potential: Optional[bool] = None
     confidence: Optional[float] = None
     rule_tag: Optional[str] = None
@@ -53,12 +44,8 @@ class ReportIn(BaseModel):
 
 class StatusUpdate(BaseModel):
     status: str
-
-
-# ---------------------------------------------------------------
+    
 # Routes
-# ---------------------------------------------------------------
-
 @app.get("/")
 def health_check():
     return {"status": "ok", "service": "OIL SIF/NLP API"}
