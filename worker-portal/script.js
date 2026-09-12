@@ -219,8 +219,5 @@ function resetForm() {
   document.getElementById("weatherSelect").selectedIndex = 0;
   typeButtons.forEach((b) => b.setAttribute("aria-checked", "false"));
   selectedType = null;
-  // multiple reports for the same site during a shift.
 }
-
-/* ---------------- Init ---------------- */
 renderRecent();
