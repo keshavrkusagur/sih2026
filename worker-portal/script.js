@@ -1,47 +1,10 @@
-/* =========================================================
-   Field Safety Report — worker-facing portal logic
-   =========================================================
-
-   HOW TO CONNECT YOUR BACKEND (SQLite + ML model) LATER:
-   --------------------------------------------------------
-   1. Set CONFIG.USE_MOCK_STORAGE = false below.
-   2. Set CONFIG.API_BASE_URL to your backend's URL
-      (e.g. "http://localhost:8000").
-   3. Your backend should expose:
-         POST {API_BASE_URL}/api/reports
-         Body (JSON): the object built in buildReportPayload()
-         Response (JSON): { id: <int>, status: "received" }
-
-   Suggested SQLite schema for the "reports" table:
-   --------------------------------------------------------
-      CREATE TABLE reports (
-        id                INTEGER PRIMARY KEY AUTOINCREMENT,
-        worker_id         TEXT,
-        site              TEXT,
-        activity          TEXT,
-        location          TEXT,
-        report_type       TEXT,     -- Unsafe Act / Unsafe Condition / Near Miss / Incident
-        description       TEXT,     -- free text (typed or voice-transcribed)
-        weather           TEXT,
-        equipment         TEXT,
-        ppe_compliant     INTEGER,  -- 0 / 1
-        submitted_at      TEXT,     -- ISO timestamp
-        -- filled in later by the ML pipeline:
-        sif_potential     INTEGER,  -- NULL until processed
-        confidence        REAL,
-        rule_tag          TEXT,
-        precursor_keywords TEXT,
-        status            TEXT DEFAULT 'pending'  -- pending / processed / reviewed
-      );
-   ========================================================= */
-
 const CONFIG = {
-  API_BASE_URL: "http://localhost:8000", // <-- your FastAPI backend
-  USE_MOCK_STORAGE: false,               // <-- backend is live, so this is off
-  STORAGE_KEY: "oilSifFieldReports",     // no longer used while USE_MOCK_STORAGE is false, kept for offline fallback
+  API_BASE_URL: "http://localhost:8000",
+  USE_MOCK_STORAGE: false,
+  STORAGE_KEY: "oilSifFieldReports",
 };
 
-/* ---------------- Clock ---------------- */
+/*Clock*/
 function updateClock() {
   const el = document.getElementById("clock");
   if (!el) return;
@@ -53,7 +16,7 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 30000);
 
-/* ---------------- Report type selector ---------------- */
+/*Report type selector*/
 let selectedType = null;
 const typeButtons = document.querySelectorAll(".type-btn");
 typeButtons.forEach((btn) => {
@@ -64,7 +27,7 @@ typeButtons.forEach((btn) => {
   });
 });
 
-/* ---------------- Speech-to-text (mic) ---------------- */
+/*Speech-to-text*/
 const micBtn = document.getElementById("micBtn");
 const micLabel = document.getElementById("micLabel");
 const micStatus = document.getElementById("micStatus");
@@ -125,13 +88,12 @@ if (SpeechRecognitionAPI) {
     }
   });
 } else {
-  // Browser doesn't support Web Speech API (e.g. Firefox, some mobile browsers)
   micBtn.disabled = true;
   micLabel.textContent = "Voice input not supported here";
   micStatus.textContent = "Try Chrome, or type your report below.";
 }
 
-/* ---------------- Toast ---------------- */
+/*Toast*/
 function showToast(message, isError = false) {
   const toast = document.getElementById("toast");
   toast.textContent = message;
@@ -140,7 +102,7 @@ function showToast(message, isError = false) {
   setTimeout(() => { toast.hidden = true; }, 3200);
 }
 
-/* ---------------- Build payload ---------------- */
+/*Build payload*/
 function buildReportPayload() {
   return {
     worker_id: document.getElementById("workerId").value.trim(),
@@ -153,7 +115,6 @@ function buildReportPayload() {
     equipment: document.getElementById("equipmentInput").value.trim(),
     ppe_compliant: document.getElementById("ppeCheckbox").checked ? 1 : 0,
     submitted_at: new Date().toISOString(),
-    // These fields are filled in later by the ML pipeline — left null until processed.
     sif_potential: null,
     confidence: null,
     rule_tag: null,
@@ -171,7 +132,7 @@ function validatePayload(payload) {
   return null;
 }
 
-/* ---------------- Storage / API ---------------- */
+/*Storage / API*/
 function saveMock(payload) {
   const existing = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY) || "[]");
   payload.id = existing.length ? existing[existing.length - 1].id + 1 : 1;
@@ -184,7 +145,6 @@ async function submitReport(payload) {
   if (CONFIG.USE_MOCK_STORAGE) {
     return saveMock(payload);
   }
-  // Real backend call — replace/adjust once your FastAPI + SQLite backend is running.
   const res = await fetch(`${CONFIG.API_BASE_URL}/api/reports`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -194,7 +154,7 @@ async function submitReport(payload) {
   return res.json();
 }
 
-/* ---------------- Recent reports list ---------------- */
+/*Recent reports list*/
 function renderRecent() {
   const list = document.getElementById("recentList");
   const all = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY) || "[]");
@@ -222,7 +182,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-/* ---------------- Submit handler ---------------- */
+/*Submit handler*/
 document.getElementById("submitBtn").addEventListener("click", async () => {
   const payload = buildReportPayload();
   const error = validatePayload(payload);
@@ -259,7 +219,6 @@ function resetForm() {
   document.getElementById("weatherSelect").selectedIndex = 0;
   typeButtons.forEach((b) => b.setAttribute("aria-checked", "false"));
   selectedType = null;
-  // Site and worker ID are intentionally kept — same worker often files
   // multiple reports for the same site during a shift.
 }
 
