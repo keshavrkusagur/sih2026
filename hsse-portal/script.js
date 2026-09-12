@@ -1,52 +1,11 @@
-/* =========================================================
-   HSSE Command Console — analyst dashboard logic
-   =========================================================
-
-   HOW TO CONNECT YOUR BACKEND (SQLite + ML model) LATER:
-   --------------------------------------------------------
-   1. Set CONFIG.USE_MOCK_DATA = false below.
-   2. Set CONFIG.API_BASE_URL to your backend's URL.
-   3. Your backend should expose:
-         GET  {API_BASE_URL}/api/reports
-              -> returns an array of report objects (see schema
-                 in worker-portal/script.js), each already scored
-                 by your ML model:
-                 { id, site, activity, report_type, description,
-                   submitted_at, sif_potential, confidence,
-                   rule_tag, precursor_keywords, status }
-         PATCH {API_BASE_URL}/api/reports/:id
-              -> body { status: "reviewed" }, used by the
-                 "Mark as reviewed" button in the modal.
-
-   4. Delete the mockClassify() function and MOCK_REPORTS below
-      once real classified data is coming from your backend —
-      they exist only to make this dashboard demoable before
-      the ML pipeline is wired up.
-
-   IMPORTANT — ACCESS CONTROL:
-   --------------------------------------------------------
-   This file has no login/auth by design (out of scope for the
-   front-end demo). Before deploying for real, put this page
-   behind your backend's authentication so workers cannot open
-   it — e.g. gate GET /api/reports behind an HSSE-only session
-   or API key, and don't serve this folder from a public path
-   workers can guess.
-   ========================================================= */
-
 const CONFIG = {
   API_BASE_URL: "http://localhost:8000",
-  USE_MOCK_DATA: false, // <-- backend is live, so this is off
-  STORAGE_KEY: "oilSifFieldReports", // no longer used while USE_MOCK_DATA is false, kept for offline fallback
+  USE_MOCK_DATA: false,
+  STORAGE_KEY: "oilSifFieldReports",
 };
 
 const RULES = ["Energy Isolation", "Confined Space", "Hot Work", "Line of Fire", "Working at Height"];
 
-/* ---------------- Mock ML classifier (placeholder) ----------------
-   This stands in for your real DistilRoBERTa / embeddings+XGBoost
-   model. It scores SIF-potential using simple keyword matching so
-   the dashboard has believable data to display. Replace calls to
-   this function with real values returned by your backend.
-------------------------------------------------------------------- */
 const PRECURSOR_KEYWORDS = {
   "Energy Isolation": ["energy isolation", "lockout", "tagout", "isolation", "live circuit", "de-energ"],
   "Confined Space": ["confined space", "gas testing", "atmospheric", "ventilation", "manhole"],
@@ -81,7 +40,7 @@ function mockClassify(text) {
   };
 }
 
-/* ---------------- Sample data (used only if localStorage is empty) ---------------- */
+/*Sample data*/
 const MOCK_REPORTS = [
   { id: 1, site: "Site A - Duliajan", activity: "Pipeline maintenance", report_type: "Unsafe Condition", description: "Worker entered confined space without gas testing being carried out first.", submitted_at: daysAgoIso(1), status: "pending" },
   { id: 2, site: "Site A - Duliajan", activity: "Electrical panel repair", report_type: "Unsafe Act", description: "Technician worked on panel without confirming energy isolation and lockout.", submitted_at: daysAgoIso(2), status: "pending" },
@@ -99,22 +58,18 @@ function daysAgoIso(n) {
   return d.toISOString();
 }
 
-/* ---------------- Data loading ---------------- */
+/*Data loading*/
 let allReports = [];
 let filteredReports = [];
 
 async function loadReports() {
   if (CONFIG.USE_MOCK_DATA) {
-    // DEMO MODE: read from the same localStorage the worker portal writes to,
-    // seeding with sample data the first time. Replace this whole block with
-    // a fetch() to your backend once it's ready (see GET /api/reports above).
     let stored = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY) || "null");
     if (!stored || !stored.length) {
       stored = MOCK_REPORTS;
       localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(stored));
     }
-
-    // Run the placeholder classifier on any report the "model" hasn't scored yet.
+     
     let changed = false;
     stored = stored.map((r) => {
       if (r.sif_potential === null || r.sif_potential === undefined) {
@@ -129,7 +84,7 @@ async function loadReports() {
     return stored;
   }
 
-  // Real backend call
+  //Backend call
   const res = await fetch(`${CONFIG.API_BASE_URL}/api/reports`);
   if (!res.ok) throw new Error(`Server responded ${res.status}`);
   document.getElementById("connStatus").textContent = "● Live backend";
@@ -151,7 +106,7 @@ async function markReviewed(id) {
   });
 }
 
-/* ---------------- Filters ---------------- */
+/*Filters*/
 function populateFilterOptions() {
   const sites = [...new Set(allReports.map((r) => r.site).filter(Boolean))].sort();
   const siteSelect = document.getElementById("siteFilter");
@@ -199,7 +154,7 @@ function debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-/* ---------------- Rendering ---------------- */
+/*Rendering*/
 function renderAll() {
   renderStats();
   renderDensityChart();
@@ -309,7 +264,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-/* ---------------- Modal ---------------- */
+/*Modal*/
 let activeReportId = null;
 
 function openModal(id) {
@@ -371,7 +326,7 @@ document.getElementById("markReviewedBtn").addEventListener("click", async () =>
   init();
 });
 
-/* ---------------- Init ---------------- */
+/*Init*/
 async function init() {
   try {
     allReports = await loadReports();
